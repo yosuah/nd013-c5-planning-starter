@@ -25,7 +25,7 @@ enum Maneuver  // A.K.A State
   // lane
   FOLLOW_LANE,
 
-  // Following - Disntance with Vehicle in front is < d_min
+  // Following - Distance with Vehicle in front is < d_min
   // and we need to slow down/speed Up (calc accel) behind it until we can
   // Change lane or move at the desired speed
   FOLLOW_VEHICLE,

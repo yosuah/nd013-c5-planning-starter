@@ -55,6 +55,8 @@ class BehaviorPlannerFSM {
 
   Maneuver _active_maneuver{FOLLOW_LANE};
   State _goal;
+  
+  double get_speed_for_goal_velocity(State goal);
 
  public:
   BehaviorPlannerFSM(double lookahead_time, double lookahead_distance_min,

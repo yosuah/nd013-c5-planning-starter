@@ -123,7 +123,7 @@ void path_planner(vector<double>& x_points, vector<double>& y_points, vector<dou
 
   State lead_car_state;  // = to the vehicle ahead...
 
-  if(spirals.size() == 0){
+  if(spirals.size() == 0) {
   	cout << "Error: No spirals generated " << endl;
   	return;
   }
@@ -191,13 +191,13 @@ int main ()
 
   h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode)
   {
-    
+    cout << "message" << endl;
         auto s = hasData(data);
 
 
         if (s != "") {
           auto data = json::parse(s);
-
+          
           vector<double> x_points = data["traj_x"];
           vector<double> y_points = data["traj_y"];
           vector<double> v_points = data["traj_v"];
@@ -246,6 +246,8 @@ int main ()
           msgJson["update_point_thresh"] = 16;
 
           auto msg = msgJson.dump();
+          
+          std::cout << msg << std::endl;
   
       ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT); 
       

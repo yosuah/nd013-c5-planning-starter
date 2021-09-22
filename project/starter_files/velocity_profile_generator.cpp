@@ -237,6 +237,7 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::follow_trajectory(
     const std::vector<PathPoint>& spiral, const double& start_speed,
     const double& desired_speed, const State& lead_car_state) const {
   std::vector<TrajectoryPoint> trajectory;
+  // NOTE: finish this
   return trajectory;
 }
 
@@ -352,7 +353,7 @@ Inputs: v_i - the initial speed in m/s.
 
 double VelocityProfileGenerator::calc_distance(const double& v_i,
                                                const double& v_f,
-                                               const double& a) const {
+                                               const double& a) {
   double d{0.0};
   if (std::abs(a) < DBL_EPSILON) {
     d = std::numeric_limits<double>::infinity();
@@ -362,7 +363,14 @@ double VelocityProfileGenerator::calc_distance(const double& v_i,
     // v_i (initial velocity) to v_f (final velocity) at a constant
     // acceleration/deceleration "a". HINT look at the description of this
     // function. Make sure you handle div by 0
-    d = 0;  // <- Update
+    
+    auto time = (v_f - v_i) / a;
+    if (time < 0) { // acceleration received with incorrect sign
+      d = std::numeric_limits<double>::infinity();
+    }
+    // x0 + v0*t + 1/2 * a * t^2
+    d = v_i * time + 0.5 * a * pow(time, 2);
+    // d = (std::pow(v_f, 2) - std::pow(v_i, 2)) / (2.0 * a);
   }
   return d;
 }
@@ -378,14 +386,14 @@ a - the acceleration in m / s ^ 2.
 */
 double VelocityProfileGenerator::calc_final_speed(const double& v_i,
                                                   const double& a,
-                                                  const double& d) const {
+                                                  const double& d) {
   double v_f{0.0};
   // TODO-calc final speed: Calculate the final distance. HINT: look at the
   // description of this function. Make sure you handle negative discriminant
   // and make v_f = 0 in that case. If the discriminant is inf or nan return
   // infinity
 
-  double disc = 0;  // <- Fix this
+  double disc = std::sqrt(std::pow(v_i, 2) + 2.0 * a * d);  // <- Fix this
   if (disc <= 0.0) {
     v_f = 0.0;
   } else if (disc == std::numeric_limits<double>::infinity() ||

@@ -84,7 +84,7 @@ std::vector<State> MotionPlanner::generate_offset_goals(
 
   // TODO-Perpendicular direction: ADD pi/2 to the goal yaw
   // (goal_state.rotation.yaw)
-  //auto yaw = ;  // <- Fix This
+  auto yaw_plus_90 = goal_state.rotation.yaw + M_PI / 2;  // <- Fix This
 
   // LOG(INFO) << "MAIN GOAL";
   // LOG(INFO) << "x: " << goal_state.location.x << " y: " <<
@@ -109,8 +109,8 @@ std::vector<State> MotionPlanner::generate_offset_goals(
     // lie on a perpendicular line to the direction (yaw) of the main goal. You
     // calculated this direction above (yaw_plus_90). HINT: use
     // std::cos(yaw_plus_90) and std::sin(yaw_plus_90)
-    // goal_offset.location.x += ;  // <- Fix This
-    // goal_offset.location.y += ;  // <- Fix This
+    goal_offset.location.x += offset * std::cos(yaw_plus_90);  // <- Fix This
+    goal_offset.location.y += offset * std::sin(yaw_plus_90);  // <- Fix This
     // LOG(INFO) << "x: " << goal_offset.location.x
     //          << " y: " << goal_offset.location.y
     //          << " z: " << goal_offset.location.z
@@ -210,14 +210,15 @@ std::vector<std::vector<PathPoint>> MotionPlanner::generate_spirals(
     if (_cubic_spiral.GenerateSpiral(start, end)) {
       std::vector<PathPoint>* spiral = new std::vector<PathPoint>;
       auto ok = _cubic_spiral.GetSampledSpiral(P_NUM_POINTS_IN_SPIRAL, spiral);
-      if (ok && valid_spiral(*spiral, goal)) {
-        // LOG(INFO) << "Spiral Valid ";
+      auto is_valid_spiral = valid_spiral(*spiral, goal);
+      if (ok && is_valid_spiral) {
+         // LOG(INFO) << "Spiral Valid ";
         spirals.push_back(*spiral);
       } else {
-        // LOG(INFO) << "Spiral Invalid ";
+         // LOG(INFO) << "Spiral Invalid. Ok? " << ok << " valid_spital? " << is_valid_spiral << " ";
       }
     } else {
-      // LOG(INFO) << "Spiral Generation FAILED! ";
+       // LOG(INFO) << "Spiral Generation FAILED! ";
     }
   }
   return spirals;

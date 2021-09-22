@@ -58,9 +58,9 @@ class VelocityProfileGenerator {
       const std::vector<PathPoint>& spiral, const double& start_speed,
       double const& desired_speed) const;
 
-  double calc_distance(const double& v_i, const double& v_f,
-                       const double& a) const;
+  static double calc_distance(const double& v_i, const double& v_f,
+                       const double& a);
 
-  double calc_final_speed(const double& v_i, const double& a,
-                          const double& d) const;
+  static double calc_final_speed(const double& v_i, const double& a,
+                          const double& d);
 };
