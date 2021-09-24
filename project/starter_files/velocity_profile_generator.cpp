@@ -104,6 +104,8 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
   // Using d = (v_f^2 - v_i^2) / (2 * a)
   auto decel_distance = calc_distance(start_speed, _slow_speed, -_a_max);
   auto brake_distance = calc_distance(_slow_speed, 0, -_a_max);
+  
+  // LOG(INFO) << "Decel dist: " << decel_distance << ", brake dist: " << brake_distance;
 
   auto path_length{0.0};
   auto stop_index{spiral.size() - 1};
@@ -116,6 +118,7 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
   up in reverse to ensure we reach zero speed at the required time.
   */
   if (brake_distance + decel_distance > path_length) {
+    LOG(INFO) << "HARD break" << std::endl;
     std::vector<double> speeds;
     auto vf{0.0};
     // Let's add the last point, i.e at the stopping line we should have speed
@@ -126,7 +129,9 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
     // Let's now go backwards until we get to the very beginning of the path
     for (int i = stop_index - 1; i >= 0; --i) {
       auto dist = utils::distance(spiral[i + 1], spiral[i]);
-      auto vi = calc_final_speed(vf, -_a_max, dist);
+      // auto vi = calc_final_speed(vf, -_a_max, dist); // NOTE: there was a bug here originally: we are iterating backwards here, so need to 
+      													// use the positive acceleration instead of the negative one.
+      auto vi = calc_final_speed(vf, _a_max, dist);
       if (vi > start_speed) {
         vi = start_speed;
       }
@@ -146,7 +151,12 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
       traj_point.v = speeds[i];
       traj_point.relative_time = time;
       trajectory.push_back(traj_point);
-      time_step = std::fabs(speeds[i] - speeds[i + 1]) / _a_max;  // Doubt!
+      // NOTE: originally the code used _a_max in all cases to calculate the time, but that is not correct, because
+      // for some path sections we do not need the full acceleration to achieve the desired speed change in a given distance.
+      // In those cases the time_step was incorrectly calculated, which caused visible jumps in the trajectory.
+      auto dist = utils::distance(spiral[i + 1], spiral[i]);
+      double actual_acceleration = calc_acceleration(speeds[i + 1], speeds[i], dist);
+      time_step = std::fabs(speeds[i] - speeds[i + 1]) / actual_acceleration;  // Doubt!
       time += time_step;
     }
     // We still need to add the last one
@@ -159,6 +169,7 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
 
     // If the brake distance DOES NOT exceed the length of the path
   } else {
+    LOG(INFO) << "NORMAL break" << std::endl;
     auto brake_index{stop_index};
     auto temp_dist{0.0};
     // Compute the index at which to start braking down to zero.
@@ -186,12 +197,17 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
       if (vf < _slow_speed) {
         vf = _slow_speed;
       }
+      // LOG(INFO) << i << ": decel. time: " << time << " vi " << vi << " -_a_max " << -_a_max << " dist " << dist << " -> vf " << vf << std::endl;
       TrajectoryPoint traj_point;
       traj_point.path_point = spiral[i];
       traj_point.v = vi;
       traj_point.relative_time = time;
       trajectory.push_back(traj_point);
-      time_step = std::fabs(vf - vi) / _a_max;
+      // NOTE: originally the code used _a_max in all cases to calculate the time, but that is not correct, because
+      // for some path sections we do not need the full acceleration to achieve the desired speed change in a given distance.
+      // In those cases the time_step was incorrectly calculated, which caused visible jumps in the trajectory.
+      double actual_acceleration = calc_acceleration(vf, vi, dist);
+      time_step = std::fabs(vf - vi) / actual_acceleration;
       time += time_step;
       vi = vf;
     }
@@ -202,8 +218,9 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
       traj_point.relative_time = time;
       trajectory.push_back(traj_point);
       auto dist = utils::distance(spiral[i + 1], spiral[i]);  // ??
+      // LOG(INFO) << i << ": samespeed. time: " << time << " vi " << vi << " dist " << dist << std::endl;
       if (dist > DBL_EPSILON)
-        time_step = vi / dist;
+        time_step = dist / vi; // NOTE: there was a bug here, original code: vi / dist;
       else
         time_step = 0.00;
 
@@ -212,12 +229,17 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::decelerate_trajectory(
     for (size_t i = brake_index; i < stop_index; ++i) {
       auto dist = utils::distance(spiral[i + 1], spiral[i]);
       auto vf = calc_final_speed(vi, -_a_max, dist);
+      // LOG(INFO) << i << ": brake. time: " << time << " vi " << vi << " -_a_max " << -_a_max << ", dist: " << dist << " -> vf " << vf << std::endl;
       TrajectoryPoint traj_point;
       traj_point.path_point = spiral[i];
       traj_point.v = vi;
       traj_point.relative_time = time;
       trajectory.push_back(traj_point);
-      time_step = std::fabs(vf - vi) / _a_max;
+      // NOTE: originally the code used _a_max in all cases to calculate the time, but that is not correct, because
+      // for some path sections we do not need the full acceleration to achieve the desired speed change in a given distance.
+      // In those cases the time_step was incorrectly calculated, which caused visible jumps in the trajectory.
+      double actual_acceleration = calc_acceleration(vf, vi, dist);
+      time_step = std::fabs(vf - vi) / actual_acceleration;
       time += time_step;
       vi = vf;
     }
@@ -304,6 +326,7 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::nominal_trajectory(
   }
 
   for (size_t i = ramp_end_index; i < spiral.size() - 1; ++i) {
+    vi = desired_speed; // NOTE: used when generating the last point
     TrajectoryPoint traj_point;
     traj_point.path_point = spiral[i];
     traj_point.v = desired_speed;
@@ -330,7 +353,10 @@ std::vector<TrajectoryPoint> VelocityProfileGenerator::nominal_trajectory(
   auto i = spiral.size() - 1;
   TrajectoryPoint traj_point;
   traj_point.path_point = spiral[i];
-  traj_point.v = desired_speed;
+  traj_point.v = vi; // desired_speed; NOTE: originally this was set to desired_speed, but it is not guaranteed that we reach it within
+  					 // the given time frame, and when we do not reach it then this caused the car to magically accelerate to d_s
+  					 // within a single point - essentially causing a huge discontinuity in velocity.
+  					 // Instead the final velocity is used from the previous point, which equals desired speed only if ramping has ended already.
   traj_point.relative_time = time;
   trajectory.push_back(traj_point);
   // LOG(INFO) << i << "- x: " << traj_point.path_point.x
@@ -376,6 +402,27 @@ double VelocityProfileGenerator::calc_distance(const double& v_i,
 }
 
 /*
+Using d = (v_f^2 - v_i^2) / (2 * a), compute the acceleration
+required for a given speed change on a given distance.
+
+Inputs: v_i - the initial speed in m/s.
+        v_f - the final speed in m/s.
+        d - the distance in m.
+        */
+
+double VelocityProfileGenerator::calc_acceleration(const double& v_i,
+                                               		const double& v_f,
+                                               		const double& d) {
+  double a{0.0};
+  if (std::abs(d) < DBL_EPSILON) {
+    a = std::numeric_limits<double>::infinity();
+  } else {
+    a = (std::pow(v_f, 2) - std::pow(v_i, 2)) / (2.0 * d);
+  }
+  return a;
+}
+
+/*
 Using v_f = sqrt(v_i ^ 2 + 2ad), compute the final speed for a given
 acceleration across a given distance, with initial speed v_i.
 Make sure to check the discriminant of the radical. If it is negative,
@@ -393,7 +440,7 @@ double VelocityProfileGenerator::calc_final_speed(const double& v_i,
   // and make v_f = 0 in that case. If the discriminant is inf or nan return
   // infinity
 
-  double disc = std::sqrt(std::pow(v_i, 2) + 2.0 * a * d);  // <- Fix this
+  double disc = std::pow(v_i, 2) + 2.0 * a * d;  // <- Fix this
   if (disc <= 0.0) {
     v_f = 0.0;
   } else if (disc == std::numeric_limits<double>::infinity() ||

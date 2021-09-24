@@ -41,7 +41,9 @@ TEST_F(BehaviorPlannerTest, FollowLaneSameSpeedStraight) {
   // Goal
   goal_input = ego_state;
   goal_input.location.x = 20;
-  goal_input.velocity.x = 2;
+  goal_input.velocity.x = P_SPEED_LIMIT; // ego_state.velocity.x; 
+    // NOTE: originally I wanted to allow the system to follow a lower-than-speed-limit set speed, but that does not currently
+    // play well with other parts of the framework
   
   // Execute
   bool is_junction = false;
@@ -61,7 +63,7 @@ TEST_F(BehaviorPlannerTest, FollowLaneSpeedLimitStraight) {
   // Goal
   goal_input = ego_state;
   goal_input.location.x = 20;
-  goal_input.velocity.x = 4; // over speed limit, should not be reached
+  goal_input.velocity.x = P_SPEED_LIMIT + 10; // over speed limit, should not be reached
   
   // Execute
   bool is_junction = false;
@@ -82,8 +84,12 @@ TEST_F(BehaviorPlannerTest, FollowLaneSameSpeedAtAngle) {
   goal_input = ego_state;
   goal_input.location.x = 20;
   goal_input.rotation.yaw = M_PI/4;
-  goal_input.velocity.x = ego_state.velocity.x * std::cos(goal_input.rotation.yaw);
-  goal_input.velocity.y = ego_state.velocity.x * std::sin(goal_input.rotation.yaw);
+  double expected_speed = P_SPEED_LIMIT; // ego_state.velocity.x; 
+    // NOTE: originally I wanted to allow the system to follow a lower-than-speed-limit set speed, but that does not currently
+    // play well with other parts of the framework
+  goal_input.velocity.x = expected_speed * std::cos(goal_input.rotation.yaw);
+  goal_input.velocity.y = expected_speed * std::sin(goal_input.rotation.yaw);
+
   
   // Execute
   bool is_junction = false;
@@ -190,5 +196,5 @@ TEST_F(BehaviorPlannerTest, Lookahead) {
   ego_state.velocity.x = 10;
   
   double lookahead = behavior_planner->get_look_ahead_distance(ego_state);
-  EXPECT_FLOAT_EQ(20, lookahead);
+  EXPECT_NEAR(16.67, lookahead, 0.1);
 }

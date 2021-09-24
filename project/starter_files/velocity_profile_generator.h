@@ -59,8 +59,11 @@ class VelocityProfileGenerator {
       double const& desired_speed) const;
 
   static double calc_distance(const double& v_i, const double& v_f,
-                       const double& a);
+                       		  const double& a);
 
   static double calc_final_speed(const double& v_i, const double& a,
-                          const double& d);
+                          		 const double& d);
+  
+  static double calc_acceleration(const double& v_i, const double& v_f,
+                           		  const double& d);
 };

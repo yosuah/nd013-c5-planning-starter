@@ -150,6 +150,7 @@ std::vector<int> MotionPlanner::get_best_spiral_idx(
       collisions.push_back(i);
     }
   }
+  // NOTE: why are the best spirals mixed with spirals that contain collisions..?
   if (best_spiral_idx != -1) {
     collisions.push_back(best_spiral_idx);
     return collisions;

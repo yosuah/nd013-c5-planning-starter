@@ -47,6 +47,8 @@
 #include <math.h>
 #include <vector>
 
+#include <unistd.h>
+
 using namespace std;
 using json = nlohmann::json;
 
@@ -96,22 +98,38 @@ void path_planner(vector<double>& x_points, vector<double>& y_points, vector<dou
   		ego_state.rotation.yaw = yaw;
   	
   }
-
-  Maneuver behavior = behavior_planner.get_active_maneuver();
+  
+  /*std::cout << "Original goal (x, y): (" << goal.location.x << ", " << goal.location.y << "), "
+    		<< "(vx, vy): " << goal.velocity.x << ", " << goal.velocity.y << ") "
+    		<< "is junction: " << is_junction << std::endl;*/
+  
+  //std::cout << "Existing trajectory (x, y, v): ";
+  for (size_t i = 0; i < x_points.size(); ++i) {
+    //std::cout << "(" << x_points[i] << ", " << y_points[i] << ", " << v_points[i] << "), ";
+  }
+  //std::cout << std::endl;
 
   goal = behavior_planner.state_transition(ego_state, goal, is_junction, tl_state);
+  // NOTE: behavior can be changed by the state transition, so getting it was moved after the state transition
+  Maneuver behavior = behavior_planner.get_active_maneuver();
 
+//   std::cout << "Behavior: " << behavior << std::endl
+//     << " ego p: (" << ego_state.location.x << ", " << ego_state.location.y << "),"
+//     << "), ego v: (" << ego_state.velocity.x << ", " << ego_state.velocity.y << ")" << std::endl
+//     << " goal p: (" << goal.location.x << ", " << goal.location.y 
+//     << "), goal v: (" << goal.velocity.x << ", " << goal.velocity.y << ")" << std::endl;
+  
   if(behavior == STOPPED){
 
-  	int max_points = 20;
+  	size_t max_points = 20;
   	double point_x = x_points[x_points.size()-1];
   	double point_y = y_points[x_points.size()-1];
   	while( x_points.size() < max_points ){
   	  x_points.push_back(point_x);
   	  y_points.push_back(point_y);
   	  v_points.push_back(0);
-
   	}
+    //std::cout << "Stopped at: " << point_x << ", " << point_y << std::endl;
   	return;
   }
 
@@ -128,7 +146,7 @@ void path_planner(vector<double>& x_points, vector<double>& y_points, vector<dou
   	return;
   }
 
-  for(int i = 0; i < spirals.size(); i++){
+  for(size_t i = 0; i < spirals.size(); i++){
 
     auto trajectory = motion_planner._velocity_profile_generator.generate_trajectory( spirals[i], desired_speed, ego_state,
                                                                                     lead_car_state, behavior);
@@ -136,7 +154,7 @@ void path_planner(vector<double>& x_points, vector<double>& y_points, vector<dou
     vector<double> spiral_x;
     vector<double> spiral_y;
     vector<double> spiral_v;
-    for(int j = 0; j < trajectory.size(); j++){
+    for(size_t j = 0; j < trajectory.size(); j++){
       double point_x = trajectory[j].path_point.x;
       double point_y = trajectory[j].path_point.y;
       double velocity = trajectory[j].v;
@@ -148,7 +166,6 @@ void path_planner(vector<double>& x_points, vector<double>& y_points, vector<dou
     spirals_x.push_back(spiral_x);
     spirals_y.push_back(spiral_y);
     spirals_v.push_back(spiral_v);
-
   }
 
   best_spirals = motion_planner.get_best_spiral_idx(spirals, obstacles, goal);
@@ -156,26 +173,37 @@ void path_planner(vector<double>& x_points, vector<double>& y_points, vector<dou
 
   if(best_spirals.size() > 0)
   	best_spiral_idx = best_spirals[best_spirals.size()-1];
-
-  int index = 0;
-  int max_points = 20;
-  int add_points = spirals_x[best_spiral_idx].size();
+  
+  size_t index = 0;
+  size_t max_points = 20;
+  size_t add_points = spirals_x[best_spiral_idx].size();
+  // NOTE: even though a full trajectory is calculated (e.g. decelerate to stop), it is probably not fully
+  // passed to the simulator. At each time instance we already receive some points from the simulator that were
+  // previously calculated, but not yet actuated, so only aronud 5 points are added at the end of that trajectory
+  // from the current calculation. This delayed actuation causes some problems during state changes,
+  // for example even though a smooth deceleration to stop is calculated, the final part of that is not yet
+  // added to this list when the state transition to stopped state already happens, causing a 'sudden stop'.
+  //std::cout << "Best spiral (x, y, v): ";
   while( x_points.size() < max_points && index < add_points ){
     double point_x = spirals_x[best_spiral_idx][index];
     double point_y = spirals_y[best_spiral_idx][index];
     double velocity = spirals_v[best_spiral_idx][index];
+    
+    //std::cout << "(" << point_x << ", " << point_y << ", " << velocity << "), ";
     index++;
     x_points.push_back(point_x);
     y_points.push_back(point_y);
     v_points.push_back(velocity);
   }
+  
+  //std::cout << std::endl;
 
 
 }
 
 void set_obst(vector<double> x_points, vector<double> y_points, vector<State>& obstacles, bool& obst_flag){
 
-	for( int i = 0; i < x_points.size(); i++){
+	for( size_t i = 0; i < x_points.size(); i++){
 		State obstacle;
 		obstacle.location.x = x_points[i];
 		obstacle.location.y = y_points[i];
@@ -189,11 +217,11 @@ int main ()
   cout << "starting server" << endl;
   uWS::Hub h;
 
-  h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode)
+  h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t /*length*/, uWS::OpCode /*opCode*/)
   {
-    cout << "message" << endl;
+    
+    cout << endl << "Message received" << endl;
         auto s = hasData(data);
-
 
         if (s != "") {
           auto data = json::parse(s);
@@ -209,6 +237,8 @@ int main ()
           double waypoint_t = data["waypoint_t"];
           bool is_junction = data["waypoint_j"];
           string tl_state = data["tl_state"];
+          
+          // std::cout << "SIM TIME: " << sim_time << std::endl;
 
           if(!have_obst){
           	vector<double> x_obst = data["obst_x"];
@@ -241,13 +271,13 @@ int main ()
           msgJson["spiral_idx"] = best_spirals;
           msgJson["active_maneuver"] = behavior_planner.get_active_maneuver();
 
-          //  min point threshold before doing the update
+          // min point threshold before doing the update
           // for high update rate use 19 for slow update rate use 4 
           msgJson["update_point_thresh"] = 16;
 
           auto msg = msgJson.dump();
           
-          std::cout << msg << std::endl;
+          // std::cout << msg << std::endl;
   
       ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT); 
       
@@ -256,13 +286,13 @@ int main ()
   });
   
   
-  h.onConnection([](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) 
+  h.onConnection([](uWS::WebSocket<uWS::SERVER> /*ws*/, uWS::HttpRequest /*req*/) 
   {
       cout << "Connected!!!" << endl;
     });
 
   
-    h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) 
+    h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int /*code*/, char */*message*/, size_t /*length*/) 
     {
       ws.close();
       cout << "Disconnected" << endl;

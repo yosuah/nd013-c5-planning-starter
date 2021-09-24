@@ -52,6 +52,7 @@ class BehaviorPlannerFSM {
   // double _follow_lead_vehicle_lookahead{-1.0};
 
   std::chrono::time_point<std::chrono::high_resolution_clock> _start_stop_time;
+  std::chrono::time_point<std::chrono::high_resolution_clock> _simulation_start_time;
 
   Maneuver _active_maneuver{FOLLOW_LANE};
   State _goal;
@@ -72,7 +73,9 @@ class BehaviorPlannerFSM {
         _req_stop_time(req_stop_time),
         _reaction_time(reaction_time),
         _max_accel(max_accel),
-        _stop_line_buffer(stop_line_buffer){};
+        _stop_line_buffer(stop_line_buffer){
+          _simulation_start_time = std::chrono::high_resolution_clock::now();
+        };
 
   ~BehaviorPlannerFSM(){};
 

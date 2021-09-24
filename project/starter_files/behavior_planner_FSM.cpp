@@ -82,7 +82,7 @@ double BehaviorPlannerFSM::get_look_ahead_distance(const State& ego_state) {
   // so in case that was positive then this underestimates the needed time/distance.
   auto look_ahead_distance = VelocityProfileGenerator::calc_distance(velocity_mag, 0.0, -_max_accel);  // <- Fix This
 
-  LOG(INFO) << "Calculated look_ahead_distance: " << look_ahead_distance;
+  // LOG(INFO) << "Calculated look_ahead_distance: " << look_ahead_distance;
 
   look_ahead_distance =
       std::min(std::max(look_ahead_distance, _lookahead_distance_min),
@@ -123,7 +123,10 @@ State BehaviorPlannerFSM::state_transition(const State& ego_state, State goal,
                                            string tl_state) {
   // Check with the Behavior Planner to see what we are going to do and
   // where our next goal is
-  //
+  
+//   LOG(INFO) << "BP now: " << std::chrono::duration_cast<std::chrono::seconds>(
+//             std::chrono::high_resolution_clock::now() - _simulation_start_time)
+//             .count() << std::endl;
 
   goal.acceleration.x = 0;
   goal.acceleration.y = 0;
@@ -164,14 +167,16 @@ State BehaviorPlannerFSM::state_transition(const State& ego_state, State goal,
       // that we know we are in nominal state and we can continue freely?
       // Remember that the speed is a vector
       // HINT: _speed_limit * std::sin/cos (goal.rotation.yaw);
-      double new_speed = get_speed_for_goal_velocity(goal); // respects the speed limit
+      // double new_speed = get_speed_for_goal_velocity(goal); // respects the speed limit
+      double new_speed = _speed_limit; // NOTE: originally I wanted to be able to set arbitrary goal speed below the speed limit (e.g. due to use choice), 
+      									// but the current framework implementation does not fully work with this. Temporarily fixing it at speed limit
       goal.velocity.x = new_speed * std::cos(goal.rotation.yaw);  // <- Fix This
       goal.velocity.y = new_speed * std::sin(goal.rotation.yaw);  // <- Fix This
       goal.velocity.z = 0;
     }
 
   } else if (_active_maneuver == DECEL_TO_STOP) {
-    // LOG(INFO) << "BP- IN DECEL_TO_STOP STATE";
+    LOG(INFO) << "BP- IN DECEL_TO_STOP STATE";
     // TODO-maintain the same goal when in DECEL_TO_STOP state: Make sure the
     // new goal is the same as the previous goal (_goal). That way we
     // keep/maintain the goal at the stop line.
@@ -191,7 +196,7 @@ State BehaviorPlannerFSM::state_transition(const State& ego_state, State goal,
     // distance
     auto distance_to_stop_sign =
         utils::magnitude(goal.location - ego_state.location);
-    // LOG(INFO) << "Ego distance to stop line: " << distance_to_stop_sign;
+    LOG(INFO) << "Ego distance to stop line: " << distance_to_stop_sign;
 
     // TODO-use distance rather than speed: Use distance rather than speed...
     // if (utils::magnitude(ego_state.velocity) <=
@@ -201,10 +206,10 @@ State BehaviorPlannerFSM::state_transition(const State& ego_state, State goal,
       // stopping point we should change state to "STOPPED"
       _active_maneuver = STOPPED;  // <- Fix This
       _start_stop_time = std::chrono::high_resolution_clock::now();
-      // LOG(INFO) << "BP - changing to STOPPED";
+      LOG(INFO) << "BP - changing to STOPPED";
     }
   } else if (_active_maneuver == STOPPED) {
-    // LOG(INFO) << "BP- IN STOPPED STATE";
+    LOG(INFO) << "BP- IN STOPPED STATE";
 
     long long stopped_secs =
         std::chrono::duration_cast<std::chrono::seconds>(
@@ -216,7 +221,7 @@ State BehaviorPlannerFSM::state_transition(const State& ego_state, State goal,
       // TODO-move to FOLLOW_LANE state: What state do we want to move to, when
       // we are "done" at the STOPPED state?
       _active_maneuver = FOLLOW_LANE;  // <- Fix This
-      // LOG(INFO) << "BP - changing to FOLLOW_LANE";
+      LOG(INFO) << "BP - changing to FOLLOW_LANE";
     } else {
           // TODO-maintain the same goal when in STOPPED state: Make sure the new goal
         // is the same as the previous goal. That way we keep/maintain the goal at
