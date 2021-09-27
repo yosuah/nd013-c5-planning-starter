@@ -28,7 +28,11 @@
 #define P_REQ_STOPPED_TIME 3.0         // secs
 #define P_LEAD_VEHICLE_LOOKAHEAD 20.0  // m
 #define P_REACTION_TIME 0.25           // secs
-#define P_NUM_POINTS_IN_SPIRAL 10      // TODO - Num of points in the spiral
+#define P_NUM_POINTS_IN_SPIRAL P_LOOKAHEAD_MAX // Num of points in the spiral.
+                                        // At least one point per meter even in case of the longest lookahead.
+										// The circle used for collision detection is of 1.5m radius (not a define but
+										// a parameter set below), so having a point at every meter ensures that there are no
+										// "blind spots" in collision detection. (Also makes the trajectory smooth.)
 #define P_STOP_THRESHOLD_DISTANCE \
   P_LOOKAHEAD_MIN / P_NUM_POINTS_IN_SPIRAL * 2  // m
 
